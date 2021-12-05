@@ -1,0 +1,112 @@
+﻿<Window x:Class="BunnySVN.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+        xmlns:ri="clr-namespace:Reactive.Bindings.Interactivity;assembly=ReactiveProperty.WPF"
+        d:DataContext="{d:DesignInstance Type=local:MainWindowViewModel}"
+        xmlns:local="clr-namespace:BunnySVN"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="544" Width="800">
+    <Grid>
+        <TextBlock HorizontalAlignment="Left" Height="29" Margin="10,29,0,0" TextWrapping="Wrap" Text="Local:" VerticalAlignment="Top" Width="91"/>
+        <TextBox Margin="106,29,10,0" TextWrapping="Wrap" Text="{Binding LocalPath.Value}" VerticalAlignment="Top" Height="29" AllowDrop="True">
+            <i:Interaction.Triggers>
+                <i:EventTrigger EventName="PreviewDragOver">
+                    <ri:EventToReactiveCommand Command="{Binding LocalPathPreviewDragOver}"/>
+                </i:EventTrigger>
+                <i:EventTrigger EventName="Drop">
+                    <ri:EventToReactiveCommand Command="{Binding LocalPathDrop}"/>
+                </i:EventTrigger>
+            </i:Interaction.Triggers>
+        </TextBox>
+        <TextBox Height="33" Margin="106,63,10,0" TextWrapping="Wrap" Text="{Binding RepoPath.Value}" VerticalAlignment="Top"/>
+
+        <!--
+        <TreeView Margin="10,101,10,10" ItemsSource="{Binding DirItems.Value.Items}">
+
+            <TreeView.ItemTemplate>
+                <HierarchicalDataTemplate DataType="local:DirectoryItem" ItemsSource="{Binding Items}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <CheckBox  Grid.Column="0" IsChecked="{Binding HasLocal}" VerticalAlignment="Center"/>
+                        <CheckBox  Grid.Column="1" IsChecked="{Binding HasRepo}" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="2" Text="{Binding Name}" VerticalAlignment="Center"/>
+                    </Grid>
+                </HierarchicalDataTemplate>
+            </TreeView.ItemTemplate>
+        </TreeView>
+        -->
+        <local:TreeListView Margin="10,138,10,107" ItemsSource="{Binding DirItems.Value.Items}" BorderThickness="1,1,1,1" BorderBrush="Black" >
+            <local:TreeListView.Resources>
+                <Style TargetType="{x:Type ToggleButton}" >
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ToggleButton">
+                                <Grid Width="16" Height="16" Background="Transparent">
+                                    <Path x:Name="ExpandOn" Margin="0" Stroke="#FF989898" Data="M3,0 L3,10 L8,5 z"/>
+                                    <Path x:Name="ExpandOff" Margin="0" Fill="#FF989898" Stroke="#FF989898" Data="M3,10L10,10L10,3z"/>
+                                </Grid>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsChecked" Value="False">
+                                        <Setter TargetName="ExpandOff" Property="Visibility" Value="Collapsed" />
+                                    </Trigger>
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter TargetName="ExpandOn" Property="Visibility" Value="Collapsed" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </local:TreeListView.Resources>
+            <i:Interaction.Triggers>
+                <i:EventTrigger EventName="SelectedItemChanged">
+                    <ri:EventToReactiveCommand Command="{Binding SelectItemChange}"/>
+                </i:EventTrigger>
+            </i:Interaction.Triggers>
+            <!-- Binding -->
+            <local:TreeListView.ItemTemplate>
+                <HierarchicalDataTemplate ItemsSource="{Binding Items}" />
+            </local:TreeListView.ItemTemplate>
+            <!-- Column Definition -->
+            <local:TreeListView.Columns>
+                <!-- 1st Column -->
+                <GridViewColumn Header="Local" Width="50">
+                    <GridViewColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding HasLocal}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <!-- 2nd Column -->
+                <GridViewColumn Header="SVN" Width="50">
+                    <GridViewColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding HasRepo}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <!-- 3rd Column -->
+                <GridViewColumn Header="File" Width="500">
+                    <GridViewColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <local:TreeListViewExpander Margin="5,0,5,0"/>
+                                <Image Width="16" Height="16" Margin="0,0,2,0" Source="{Binding Icon}"/>
+                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+            </local:TreeListView.Columns>
+        </local:TreeListView>
+        <TextBox Margin="10,0,10,10" TextWrapping="Wrap" Text="TextBox" Height="67" VerticalAlignment="Bottom"/>
+        <TextBox HorizontalAlignment="Left" Height="32" Margin="185,101,0,0" TextWrapping="Wrap" Text="{Binding SelectItem.Value}" VerticalAlignment="Top" Width="245"/>
+    </Grid>
+</Window>
