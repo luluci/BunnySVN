@@ -24,7 +24,7 @@ namespace BunnySVN
         private CompositeDisposable disposables = new CompositeDisposable();
 
 
-        public AsyncReactiveCommand LocalPathPreviewDragOver { get; } = new AsyncReactiveCommand();
+        public ReactiveCommand LocalPathPreviewDragOver { get; } = new ReactiveCommand();
         public AsyncReactiveCommand LocalPathDrop { get; } = new AsyncReactiveCommand();
         public ReactivePropertySlim<string> LocalPath { get; set; } = new ReactivePropertySlim<string>(string.Empty);
         public ReactivePropertySlim<string> RepoPath { get; set; } = new ReactivePropertySlim<string>(string.Empty);
@@ -35,6 +35,8 @@ namespace BunnySVN
         public AsyncReactiveCommand UpdateOnlyItem { get; set; } = new AsyncReactiveCommand();
         // SVN Client
         private SharpSvn.SvnClient _client = new SharpSvn.SvnClient();
+        // Log
+        public ReactiveCollection<string> LogList { get; } = new ReactiveCollection<string>();
 
         public MainWindowViewModel()
         {
@@ -42,7 +44,7 @@ namespace BunnySVN
                 .AddTo(disposables);
             // GUI
             LocalPathPreviewDragOver
-                .Subscribe(async (e) => await OnPreviewDragOver_LocalPath((DragEventArgs)e))
+                .Subscribe(e => OnPreviewDragOver_LocalPath((DragEventArgs)e))
                 .AddTo(disposables);
             LocalPathDrop
                 .Subscribe(async (e) => await OnFileDrop_LocalPath((DragEventArgs)e))
@@ -71,13 +73,13 @@ namespace BunnySVN
                 {
                     if (_selectedItem is not null)
                     {
-                        _selectedItem.UpdateOnlyThisItem();
+                        await _selectedItem.UpdateOnlyThisItem();
                     }
                 })
                 .AddTo(disposables);
         }
 
-        private async Task OnPreviewDragOver_LocalPath(DragEventArgs e)
+        private void OnPreviewDragOver_LocalPath(DragEventArgs e)
         {
             // マウスポインタを変更する。
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
@@ -107,21 +109,25 @@ namespace BunnySVN
         {
             try
             {
-                var root = _client.GetWorkingCopyRoot(path);
-                var uri = _client.GetUriFromWorkingCopy(path);
+                var (root, uri) = await Task.Run(() =>
+                {
+                    var root = _client.GetWorkingCopyRoot(path);
+                    var uri = _client.GetUriFromWorkingCopy(path);
+                    return (root, uri);
+                });
                 // 既存情報チェック
                 // 指定されたパスのrootがすでに取得済みの情報と同じならスキップ
                 if (DirItems.Value.IsSameWorkCopy(path))
                 {
-                    DirItems.Value.SelectItem(path);
+                    await DirItems.Value.SelectItem(path);
                     return;
                 }
                 //
                 if (uri is not null && root is not null)
                 {
-                    var newlist = new DirectoryItem(_client);
-                    newlist.InitRoot(root, path);
                     RepoPath.Value = uri.ToString();
+                    var newlist = new DirectoryItem(_client);
+                    await newlist.InitRoot(root, path);
                     DirItems.Value = newlist;
                 }
                 else
@@ -199,32 +205,45 @@ namespace BunnySVN
             Icon = new ReactivePropertySlim<BitmapSource>(System.Windows.Interop.Imaging.CreateBitmapSourceFromHIcon(SystemIcons.WinLogo.Handle, Int32Rect.Empty, null));
         }
 
-        public void InitRoot(string root, string curr)
+        public async Task InitRoot(string root, string curr)
         {
-            var rootRepo = SvnClient.GetUriFromWorkingCopy(root);
+            var rootRepo = await Task.Run(() =>
+            {
+                return SvnClient.GetUriFromWorkingCopy(root);
+            });
             var rootItem = new DirectoryItem(SvnClient)
             {
                 Parent = null,
                 LocalPath = root,
                 RepoPath = rootRepo,
             };
-            rootItem.Init(curr);
+            await rootItem.Init(curr);
             // ツリー作成
             Items.Clear();
             Items.Add(rootItem);
         }
 
-        public void Init(string select)
+        public async Task Init(string select)
         {
             // 自分の情報を更新
             if (RepoPath is not null)
             {
                 // リポジトリから情報取得
-                var tgt = SharpSvn.SvnTarget.FromUri(RepoPath);
-                if (SvnClient.GetInfo(tgt, out var info))
+                var (result, isFile, isDirectory) = await Task.Run(() =>
                 {
-                    IsFile = (info.NodeKind == SharpSvn.SvnNodeKind.File);
-                    IsDirectory = (info.NodeKind == SharpSvn.SvnNodeKind.Directory);
+                    var tgt = SharpSvn.SvnTarget.FromUri(RepoPath);
+                    if (SvnClient.GetInfo(tgt, out var info))
+                    {
+                        var isFile = (info.NodeKind == SharpSvn.SvnNodeKind.File);
+                        var isDirectory = (info.NodeKind == SharpSvn.SvnNodeKind.Directory);
+                        return (true, IsFile, isDirectory);
+                    }
+                    return (false, false, false);
+                });
+                if (result)
+                {
+                    IsFile = isFile;
+                    IsDirectory = isDirectory;
                 }
                 HasRepo.Value = true;
             }
@@ -248,7 +267,7 @@ namespace BunnySVN
             if (IsDirectory)
             {
                 // 最初にリポジトリの該当フォルダ内のリストを取得
-                var (dir_list, file_list) = GetRepoList();
+                var (dir_list, file_list) = await GetRepoList();
                 // 
                 string? name = null;
                 if (LocalPath is not null)
@@ -273,7 +292,10 @@ namespace BunnySVN
                         if (dir_name is null) continue;
                         dir_name += "/";
                         if (dir_name == ".svn/") continue;
-                        var repo = SvnClient.GetUriFromWorkingCopy(dir);
+                        var repo = await Task.Run(() =>
+                        {
+                            return SvnClient.GetUriFromWorkingCopy(dir);
+                        });
                         var item = new DirectoryItem(SvnClient)
                         {
                             Parent = this,
@@ -311,7 +333,10 @@ namespace BunnySVN
                     foreach (var file in System.IO.Directory.EnumerateFiles(LocalPath))
                     {
                         var file_name = System.IO.Path.GetFileName(file);
-                        var repo = SvnClient.GetUriFromWorkingCopy(file);
+                        var repo = await Task.Run(() =>
+                        {
+                            return SvnClient.GetUriFromWorkingCopy(file);
+                        });
                         var item = new DirectoryItem(SvnClient)
                         {
                             Name = file_name,
@@ -347,7 +372,7 @@ namespace BunnySVN
                 // 最後にまとめて初期化を実施
                 foreach (var item in Items)
                 {
-                    item.Init(select);
+                    await item.Init(select);
                 }
             }
             if (IsFile)
@@ -403,7 +428,7 @@ namespace BunnySVN
             return result;
         }
 
-        public void SelectItem(string path)
+        public async Task SelectItem(string path)
         {
             // root要素に対して実行することを前提とする
             if (Parent is not null) return;
@@ -411,28 +436,32 @@ namespace BunnySVN
             try
             {
                 // パスをファイル、ディレクトリごとで分割
-                var root = SvnClient.GetWorkingCopyRoot(path);
-                var parts = new LinkedList<string>();
-                string? next = path;
-                string? part = null;
-                while (root != next)
+                var parts = await Task.Run(() =>
                 {
-                    if (System.IO.File.Exists(next))
+                    var root = SvnClient.GetWorkingCopyRoot(path);
+                    var parts = new LinkedList<string>();
+                    string? next = path;
+                    string? part = null;
+                    while (root != next)
                     {
-                        part = System.IO.Path.GetFileName(next);
+                        if (System.IO.File.Exists(next))
+                        {
+                            part = System.IO.Path.GetFileName(next);
+                        }
+                        else if (System.IO.Directory.Exists(next))
+                        {
+                            part = System.IO.Path.GetFileName(next) + "/";
+                        }
+                        else
+                        {
+                            break;
+                        }
+                        next = System.IO.Path.GetDirectoryName(next);
+                        if (next is null) break;
+                        parts.AddFirst(part);
                     }
-                    else if (System.IO.Directory.Exists(next))
-                    {
-                        part = System.IO.Path.GetFileName(next) + "/";
-                    }
-                    else
-                    {
-                        break;
-                    }
-                    next = System.IO.Path.GetDirectoryName(next);
-                    if (next is null) break;
-                    parts.AddFirst(part);
-                }
+                    return parts;
+                });
                 // 探索
                 var curr = Items[0];
                 foreach (var p in parts)
@@ -459,24 +488,34 @@ namespace BunnySVN
             }
         }
 
-        public bool UpdateOnlyThisItem()
+        public async Task<bool> UpdateOnlyThisItem()
         {
             try
             {
                 // 選択しているアイテムだけUPDATEで取得する
                 // ローカルにWorkingCopyが無く、リポジトリに存在する前提
                 if (LocalPath is not null || RepoPath is null) return false;
-                // WorkingCopyが存在する場所までさかのぼって、順に1つずつ取得する
-                var update_list = new LinkedList<DirectoryItem>();
-                var curr = this;
-                while (curr.LocalPath is null)
+                var (result, update_list) = await Task.Run(() =>
                 {
-                    // LocalPathが無ければUPDATE対象
-                    update_list.AddFirst(curr);
-                    // WorkingCopyのrootが必ず存在するのでnull到達はありえない
-                    if (curr.Parent is null) return false;
-                    curr = curr.Parent;
-                }
+                    // WorkingCopyが存在する場所までさかのぼって、順に1つずつ取得する
+                    var update_list = new LinkedList<DirectoryItem>();
+                    var curr = this;
+                    var result = true;
+                    while (curr.LocalPath is null)
+                    {
+                        // LocalPathが無ければUPDATE対象
+                        update_list.AddFirst(curr);
+                        // WorkingCopyのrootが必ず存在するのでnull到達はありえない
+                        if (curr.Parent is null)
+                        {
+                            result = false;
+                            break;
+                        }
+                        curr = curr.Parent;
+                    }
+                    return (result, update_list);
+                });
+                if (!result) return false;
                 // 最上位フォルダから順にUPDATE
                 var args = new SharpSvn.SvnUpdateArgs();
                 args.Depth = SharpSvn.SvnDepth.Children;
@@ -484,11 +523,16 @@ namespace BunnySVN
                 args.Revision = SharpSvn.SvnRevision.Head;
                 foreach (var item in update_list)
                 {
-                    if (SvnClient.Update(item.Parent!.LocalPath, args, out var result))
+                    var update_result = await Task.Run(() =>
+                    {
+                        var res = SvnClient.Update(item.Parent!.LocalPath, args, out var result);
+                        return (res, result);
+                    });
+                    if (update_result.res)
                     {
                         var name = item.Name;
                         if (item.IsDirectory) name = item.Name.Substring(0, item.Name.Length - 1);
-                        item.LocalPath = item.Parent.LocalPath + System.IO.Path.DirectorySeparatorChar + name;
+                        item.LocalPath = item.Parent!.LocalPath + System.IO.Path.DirectorySeparatorChar + name;
                         item.Icon.Value = GetIcon(item.LocalPath);
                         item.HasLocal.Value = true;
                     }
@@ -506,44 +550,47 @@ namespace BunnySVN
             return true;
         }
 
-        private (LinkedList<Uri>, LinkedList<Uri>) GetRepoList()
+        private async Task<(LinkedList<Uri>, LinkedList<Uri>)> GetRepoList()
         {
-            var dir_list = new LinkedList<Uri>();
-            var file_list = new LinkedList<Uri>();
-            if (RepoPath is not null)
+            return await Task.Run(() =>
             {
-                // ライブラリの挙動がおかしい？　RepositoryRootがSvnTargetの親ディレクトリになってるっぽい？
-                // RepositoryRootにBasePath(rootからの相対パスっぽい)を結合するのでパスがおかしくなってる
-                // そのため、RepoPathにPathを結合して正しいパスを作成する
-                var tgt = SharpSvn.SvnTarget.FromUri(RepoPath);
-                if (SvnClient.GetList(tgt, out var list))
+                var dir_list = new LinkedList<Uri>();
+                var file_list = new LinkedList<Uri>();
+                if (RepoPath is not null)
                 {
-                    foreach (var item in list)
+                    // ライブラリの挙動がおかしい？　RepositoryRootがSvnTargetの親ディレクトリになってるっぽい？
+                    // RepositoryRootにBasePath(rootからの相対パスっぽい)を結合するのでパスがおかしくなってる
+                    // そのため、RepoPathにPathを結合して正しいパスを作成する
+                    var tgt = SharpSvn.SvnTarget.FromUri(RepoPath);
+                    if (SvnClient.GetList(tgt, out var list))
                     {
-                        var path = item.Path;
-                        // 空文字は自分を指してるのでスキップ
-                        if (path.Length == 0) continue;
-                        // その他の子アイテムを処理
-                        switch (item.Entry.NodeKind)
+                        foreach (var item in list)
                         {
-                            case SharpSvn.SvnNodeKind.Directory:
-                                //dir_list.AddLast(item.Uri);
-                                var new_path = new Uri(RepoPath, path + "/");
-                                dir_list.AddLast(new_path);
-                                break;
-                            case SharpSvn.SvnNodeKind.File:
-                                //file_list.AddLast(item.Uri);
-                                var new_file_path = new Uri(RepoPath, path);
-                                file_list.AddLast(new_file_path);
-                                break;
-                            default:
-                                // 何もしない
-                                break;
+                            var path = item.Path;
+                            // 空文字は自分を指してるのでスキップ
+                            if (path.Length == 0) continue;
+                            // その他の子アイテムを処理
+                            switch (item.Entry.NodeKind)
+                            {
+                                case SharpSvn.SvnNodeKind.Directory:
+                                    //dir_list.AddLast(item.Uri);
+                                    var new_path = new Uri(RepoPath, path + "/");
+                                    dir_list.AddLast(new_path);
+                                    break;
+                                case SharpSvn.SvnNodeKind.File:
+                                    //file_list.AddLast(item.Uri);
+                                    var new_file_path = new Uri(RepoPath, path);
+                                    file_list.AddLast(new_file_path);
+                                    break;
+                                default:
+                                    // 何もしない
+                                    break;
+                            }
                         }
                     }
                 }
-            }
-            return (dir_list, file_list);
+                return (dir_list, file_list);
+            });
         }
 
         private BitmapSource GetIcon(string path)

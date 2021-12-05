@@ -106,8 +106,24 @@
                 </GridViewColumn>
             </local:TreeListView.Columns>
         </local:TreeListView>
-        <TextBox Margin="10,0,10,10" TextWrapping="Wrap" Text="TextBox" Height="67" VerticalAlignment="Bottom"/>
         <TextBox HorizontalAlignment="Left" Height="20" Margin="106,81,0,0" TextWrapping="Wrap" Text="{Binding SelectItem.Value}" VerticalAlignment="Top" Width="245"/>
         <Button Content="リポジトリからファイル取得" Command="{Binding UpdateOnlyItem}" HorizontalAlignment="Left" Height="20" Margin="374,81,0,0" VerticalAlignment="Top" Width="157"/>
+
+        <Grid Margin="10,438,10,10">
+            <ListView ScrollViewer.CanContentScroll="True"
+                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                  ScrollViewer.IsDeferredScrollingEnabled="True"
+                  ScrollViewer.PanningMode="VerticalOnly"
+                  ScrollViewer.VerticalScrollBarVisibility="Visible"
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.VirtualizationMode="Recycling"
+                  ItemsSource="{Binding LogList}" d:ItemsSource="{d:SampleData ItemCount=5}">
+                <ListView.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel Orientation="Vertical" CanVerticallyScroll="True"/>
+                    </ItemsPanelTemplate>
+                </ListView.ItemsPanel>
+            </ListView>
+        </Grid>
     </Grid>
 </Window>
