@@ -10,8 +10,8 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="544" Width="800">
     <Grid>
-        <TextBlock HorizontalAlignment="Left" Height="20" Margin="10,29,0,0" TextWrapping="Wrap" Text="Local:" VerticalAlignment="Top" Width="91"/>
-        <TextBox Margin="106,29,10,0" TextWrapping="Wrap" Text="{Binding LocalPath.Value}" VerticalAlignment="Top" Height="20" AllowDrop="True">
+        <TextBlock HorizontalAlignment="Left" Height="20" Margin="10,10,0,0" TextWrapping="Wrap" Text="Local:" VerticalAlignment="Top" Width="42" FontSize="14"/>
+        <TextBox Margin="57,10,6,0" TextWrapping="Wrap" Text="{Binding LocalPath.Value}" VerticalAlignment="Top" Height="20" AllowDrop="True">
             <i:Interaction.Triggers>
                 <i:EventTrigger EventName="PreviewDragOver">
                     <ri:EventToReactiveCommand Command="{Binding LocalPathPreviewDragOver}"/>
@@ -21,7 +21,8 @@
                 </i:EventTrigger>
             </i:Interaction.Triggers>
         </TextBox>
-        <TextBox Height="20" Margin="106,55,10,0" TextWrapping="Wrap" Text="{Binding RepoPath.Value}" VerticalAlignment="Top"/>
+        <TextBlock HorizontalAlignment="Left" Height="20" Margin="10,35,0,0" TextWrapping="Wrap" Text="Repo:" VerticalAlignment="Top" Width="42" FontSize="14"/>
+        <TextBox Height="20" Margin="57,35,6,0" TextWrapping="Wrap" Text="{Binding RepoPath.Value}" VerticalAlignment="Top"/>
 
         <!--
         <TreeView Margin="10,101,10,10" ItemsSource="{Binding DirItems.Value.Items}">
@@ -42,7 +43,7 @@
             </TreeView.ItemTemplate>
         </TreeView>
         -->
-        <local:TreeListView Margin="10,106,10,107" ItemsSource="{Binding DirItems.Value.Items}" BorderThickness="1,1,1,1" BorderBrush="Black" >
+        <local:TreeListView Margin="10,91,10,107" ItemsSource="{Binding DirItems.Value.Items}" BorderThickness="1,1,1,1" BorderBrush="Black" >
             <local:TreeListView.Resources>
                 <Style TargetType="{x:Type ToggleButton}" >
                     <Setter Property="Template">
@@ -106,10 +107,10 @@
                 </GridViewColumn>
             </local:TreeListView.Columns>
         </local:TreeListView>
-        <TextBox HorizontalAlignment="Left" Height="20" Margin="106,81,0,0" TextWrapping="Wrap" Text="{Binding SelectItem.Value}" VerticalAlignment="Top" Width="245"/>
-        <Button Content="リポジトリからファイル取得" Command="{Binding UpdateOnlyItem}" HorizontalAlignment="Left" Height="20" Margin="374,81,0,0" VerticalAlignment="Top" Width="157"/>
+        <TextBox HorizontalAlignment="Left" Height="20" Margin="134,66,0,0" TextWrapping="Wrap" Text="{Binding SelectItem.Value}" VerticalAlignment="Top" Width="245"/>
+        <Button Content="リポジトリからファイル取得" Command="{Binding UpdateOnlyItem}" HorizontalAlignment="Left" Height="20" Margin="384,66,0,0" VerticalAlignment="Top" Width="157"/>
 
-        <Grid Margin="10,438,10,10">
+        <Grid Margin="10,0,10,10" Height="80" VerticalAlignment="Bottom">
             <ListView ScrollViewer.CanContentScroll="True"
                   ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                   ScrollViewer.IsDeferredScrollingEnabled="True"
